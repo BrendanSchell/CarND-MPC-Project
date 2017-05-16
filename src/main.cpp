@@ -98,16 +98,48 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
+          auto coeffs = polyfit(ptsx, ptsy, 1);
+
+          double cte = polyeval(coeffs, 0) - py;
+
+          double epsi = -atan(coeffs[1]);
+
+          Eigen::VectorXd state(6);
+          state << px, py, psi, v, cte, epsi;
+
+          std::vector<double> x_vals = {state[0]};
+          std::vector<double> y_vals = {state[1]};
+          std::vector<double> psi_vals = {state[2]};
+          std::vector<double> v_vals = {state[3]};
+          std::vector<double> cte_vals = {state[4]};
+          std::vector<double> epsi_vals = {state[5]};
+          std::vector<double> delta_vals = {};
+          std::vector<double> a_vals = {};
+
+          auto vars = mpc.Solve(state, coeffs);
+
+          x_vals.push_back(vars[0]);
+          y_vals.push_back(vars[1]);
+          psi_vals.push_back(vars[2]);
+          v_vals.push_back(vars[3]);
+          cte_vals.push_back(vars[4]);
+          epsi_vals.push_back(vars[5]);
+
+          delta_vals.push_back(vars[6]);
+          a_vals.push_back(vars[7]);
+
           double steer_value;
           double throttle_value;
 
+          steer_value = vars[6][0];
+          throttle_value = vars[7][0];
           json msgJson;
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
+          vector<double> mpc_x_vals = x_vals;
+          vector<double> mpc_y_vals = y_vals;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
