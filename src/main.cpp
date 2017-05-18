@@ -41,6 +41,14 @@ double polyeval(Eigen::VectorXd coeffs, double x) {
   return result;
 }
 
+// Return derivative coefficients
+Eigen::VectorXd polyderiv(Eigen::VectorXd coeffs) {
+  Eigen::VectorXd result(coeffs.size()-1);
+  for (int i =1; i < coeffs.size();i++) {
+    result[i-1] = i * coeffs[i];
+  }
+  return result;
+}
 // Fit a polynomial.
 // Adapted from
 // https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
@@ -87,59 +95,54 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
+          
+          Eigen::VectorXd ptsxv(ptsx.size());
+          Eigen::VectorXd ptsyv(ptsx.size());
+
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          // convert to vehicle coordinate system
+          for (int i = 0; i < ptsx.size(); i++){
+            double x_new = ptsx[i] - px;
+            double y_new =  ptsy[i] - py;
+            ptsxv[i] = x_new * cos(-psi) - y_new * sin(-psi);
+            ptsx[i] = ptsxv[i];
+            ptsyv[i] = x_new * sin(-psi) + y_new * cos(-psi);
+            ptsy[i] = ptsyv[i];
+          }
           /*
           * TODO: Calculate steeering angle and throttle using MPC.
           *
           * Both are in between [-1, 1].
           *
           */
-          auto coeffs = polyfit(ptsx, ptsy, 1);
+          auto coeffs = polyfit(ptsxv, ptsyv, 3);
 
-          double cte = polyeval(coeffs, 0) - py;
-
-          double epsi = -atan(coeffs[1]);
-
+          double cte = polyeval(coeffs, 0);
+          Eigen::VectorXd deriv = polyderiv(coeffs);
+          double derivx = polyeval(deriv,0);
+          double epsi = - atan(derivx);
+          
           Eigen::VectorXd state(6);
-          state << px, py, psi, v, cte, epsi;
-
-          std::vector<double> x_vals = {state[0]};
-          std::vector<double> y_vals = {state[1]};
-          std::vector<double> psi_vals = {state[2]};
-          std::vector<double> v_vals = {state[3]};
-          std::vector<double> cte_vals = {state[4]};
-          std::vector<double> epsi_vals = {state[5]};
-          std::vector<double> delta_vals = {};
-          std::vector<double> a_vals = {};
+          state << 0, 0, 0, v, cte, epsi;
 
           auto vars = mpc.Solve(state, coeffs);
-
-          x_vals.push_back(vars[0]);
-          y_vals.push_back(vars[1]);
-          psi_vals.push_back(vars[2]);
-          v_vals.push_back(vars[3]);
-          cte_vals.push_back(vars[4]);
-          epsi_vals.push_back(vars[5]);
-
-          delta_vals.push_back(vars[6]);
-          a_vals.push_back(vars[7]);
 
           double steer_value;
           double throttle_value;
 
-          steer_value = vars[6][0];
-          throttle_value = vars[7][0];
+          steer_value = -vars[6];
+          throttle_value = vars[7];
           json msgJson;
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals = x_vals;
-          vector<double> mpc_y_vals = y_vals;
+          vector<double> mpc_x_vals = mpc.mpc_x;
+          vector<double> mpc_y_vals = mpc.mpc_y;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
@@ -148,12 +151,12 @@ int main() {
           msgJson["mpc_y"] = mpc_y_vals;
 
           //Display the waypoints/reference line
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+          vector<double> next_x_vals = ptsx;
+          vector<double> next_y_vals = ptsy;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
-
+          
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
