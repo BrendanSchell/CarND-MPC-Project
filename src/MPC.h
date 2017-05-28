@@ -11,6 +11,8 @@ class MPC {
   MPC();
 
   virtual ~MPC();
+
+  // storage for mpc predicted path
   vector<double> mpc_x;
   vector<double> mpc_y;
   // Solve the model given an initial state and polynomial coefficients.

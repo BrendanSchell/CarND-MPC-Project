@@ -41,7 +41,7 @@ double polyeval(Eigen::VectorXd coeffs, double x) {
   return result;
 }
 
-// Return derivative coefficients
+// Return derivative coefficients of polynomial
 Eigen::VectorXd polyderiv(Eigen::VectorXd coeffs) {
   Eigen::VectorXd result(coeffs.size()-1);
   for (int i =1; i < coeffs.size();i++) {
@@ -95,7 +95,9 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
-          
+
+
+          // vectors to store transformed waypoints 
           Eigen::VectorXd ptsxv(ptsx.size());
           Eigen::VectorXd ptsyv(ptsx.size());
 
@@ -108,27 +110,28 @@ int main() {
           for (int i = 0; i < ptsx.size(); i++){
             double x_new = ptsx[i] - px;
             double y_new =  ptsy[i] - py;
-            ptsxv[i] = x_new * cos(-psi) - y_new * sin(-psi);
+            ptsxv[i] = x_new * cos(psi) + y_new * sin(psi);
             ptsx[i] = ptsxv[i];
-            ptsyv[i] = x_new * sin(-psi) + y_new * cos(-psi);
+            ptsyv[i] = -x_new * sin(psi) + y_new * cos(psi);
             ptsy[i] = ptsyv[i];
           }
-          /*
-          * TODO: Calculate steeering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
+          
+          // fit polynomial to waypoints
           auto coeffs = polyfit(ptsxv, ptsyv, 3);
 
+          // calculate cross track error and epsi
           double cte = polyeval(coeffs, 0);
           Eigen::VectorXd deriv = polyderiv(coeffs);
           double derivx = polyeval(deriv,0);
-          double epsi = - atan(derivx);
+          double epsi =  -atan(derivx);
           
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          // first variables are 0s since assume vehicle is now
+          // at origin except for x which is ahead 100ms due to
+          // latency
+          state << v*0.1, 0, 0, v, cte, epsi;
 
+          // solve mpc, assign solution values to steer and throttle
           auto vars = mpc.Solve(state, coeffs);
 
           double steer_value;
@@ -137,7 +140,9 @@ int main() {
           steer_value = -vars[6];
           throttle_value = vars[7];
           json msgJson;
-          msgJson["steering_angle"] = steer_value;
+
+          // normalize angle
+          msgJson["steering_angle"] = steer_value / deg2rad(25.);
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
