@@ -11,17 +11,21 @@ The model that was used was a Global Kinematic Model that ignores forces such as
 
 The model is governed by the following variables and equations:
 
-The state is governed by vehicle position x and y, orientation psi,
-and velocity v. Changes to the state are controlled by actuators  
+The state is governed by vehicle position x and y, orientation psi, and velocity v. Changes to the state are controlled by actuators  
 δ for the steering angle and a for the accelation. The Cross Track Error cte and Orientation Error (epsi) are also tracked. 
 
 The update equations are as follows:
 
 x[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+
 y[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+
 psi[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+
 v[t+1] = v[t] + a[t] * dt
+
 cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
+
 epsi[t+1] = psi[t] - psi_ref[t] + v[t] * delta[t] / Lf * dt
 
 where Lf is the distance between the front of the vehicle and its center of gravity and dt is the timestep length between actuations.
